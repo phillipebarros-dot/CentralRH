@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <title>GRUPO OM - Central RH</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- ✅ CARREGA CONFIG E AUTH -->
+    <script src="../js/Config.js"></script>
+    <script src="../js/auth.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        html, body {
+            height: 100%;
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+        
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            border-radius: 0.375rem;
+            color: #d1d5db;
+            transition: background-color 0.2s, color 0.2s;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        .sidebar-link:hover {
+            background-color: #374151;
+            color: #ffffff;
+        }
+        .sidebar-link.active {
+            background-color: #4b5563;
+            color: #ffffff;
+            font-weight: 600;
+        }
+        .sidebar-icon {
+            margin-right: 0.75rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            font-size: 1rem;
+            text-align: center;
+        }
+        
+        .modal-backdrop { display: none; position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.7); z-index: 40; opacity: 0; transition: opacity 0.3s ease-in-out; }
+        .modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.95); z-index: 50; opacity: 0; transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; }
+        .modal-backdrop.show, .modal.show { display: block; opacity: 1; }
+        .modal.show { transform: translate(-50%, -50%) scale(1); }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .status-tag { padding: 0.25rem 0.75rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .status-novo { background-color: #fef3c7; color: #a16207; }
+        .status-pendente { background-color: #fee2e2; color: #b91c1c; }
+        .status-aprovado { background-color: #dcfce7; color: #15803d; }
+        .status-recusado { background-color: #fee2e2; color: #b91c1c; }
+    </style>
+</head>
+<body class="h-full flex">
+    <!-- ✅ PROTEÇÃO DE PÁGINA -->
+    <script>protectPage();</script>
+
+    <!-- SIDEBAR -->
+    <div class="w-60 bg-gray-800 flex-shrink-0 flex flex-col">
+        <div class="flex items-center justify-center h-16 shadow-md px-4">
+            <h1 class="text-xl font-semibold text-white">GRUPO OM</h1>
+            <span class="ml-2 text-gray-400 text-lg font-light">RH</span>
+        </div>
+        
+        <nav class="flex-grow p-4 space-y-2">
+            <a href="#" class="sidebar-link active" data-tab="central">
+                <i class="fa-solid fa-house sidebar-icon"></i> Central
+            </a>
+            <a href="#" class="sidebar-link" data-tab="chamados">
+                <i class="fa-solid fa-ticket sidebar-icon"></i> Chamados
+            </a>
+            <a href="#" class="sidebar-link" data-tab="stats">
+                <i class="fa-solid fa-chart-bar sidebar-icon"></i> Estatísticas
+            </a>
+            <a href="#" class="sidebar-link" data-tab="admin">
+                <i class="fa-solid fa-wrench sidebar-icon"></i> Administração
+            </a>
+            <a href="#" class="sidebar-link" data-tab="config">
+                <i class="fa-solid fa-gears sidebar-icon"></i> Configuração
+            </a>
+        </nav>
+        
+        <div class="p-4 border-t border-gray-700">
+            <a href="#" id="logoutButton" class="sidebar-link !text-red-400 hover:!bg-red-900 hover:!text-white">
+                <i class="fa-solid fa-right-from-bracket sidebar-icon"></i> Sair
+            </a>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main class="flex-1 overflow-y-auto">
+        <!-- Header -->
+        <header class="h-16 bg-white shadow-sm border-b border-gray-200 flex items-center justify-between px-6">
+            <div class="flex items-center">
+                <h1 id="mainHeaderTitle" class="text-xl font-semibold text-gray-800">Central</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button class="text-gray-600 hover:text-gray-900">
+                    <i class="fa-solid fa-bell fa-lg"></i>
+                </button>
+                <div class="flex items-center">
+                    <div id="userAvatar" class="w-9 h-9 rounded-full flex items-center justify-center text-white font-bold bg-gray-600">
+                        US
+                    </div>
+                    <span id="userName" class="ml-2 text-sm font-medium text-gray-700">Usuário</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Área de Conteúdo -->
+        <div class="p-6">
+            <!-- TAB 1: CENTRAL -->
+            <div id="central" class="tab-content active space-y-6">
+                <!-- KPIs -->
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-5">
+                    <div class="bg-white p-4 rounded-md shadow-sm border border-gray-200">
+                        <h2 class="text-sm font-medium text-gray-500 mb-1">Novo / Pendente</h2>
+                        <p id="kpi-novo" class="text-3xl font-bold text-gray-800">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-md shadow-sm border border-gray-200">
+                        <h2 class="text-sm font-medium text-gray-500 mb-1">Aguardando Gestor</h2>
+                        <p id="kpi-gestor" class="text-3xl font-bold text-gray-800">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-md shadow-sm border border-gray-200">
+                        <h2 class="text-sm font-medium text-gray-500 mb-1">Aguardando RH</h2>
+                        <p id="kpi-rh" class="text-3xl font-bold text-gray-800">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-md shadow-sm border border-gray-200">
+                        <h2 class="text-sm font-medium text-gray-500 mb-1">Aprovados</h2>
+                        <p id="kpi-aprovado" class="text-3xl font-bold text-green-600">0</p>
+                    </div>
+                    <div class="bg-white p-4 rounded-md shadow-sm border border-gray-200">
+                        <h2 class="text-sm font-medium text-gray-500 mb-1">Recusados</h2>
+                        <p id="kpi-recusado" class="text-3xl font-bold text-red-600">0</p>
+                    </div>
+                </div>
+
+                <!-- Tabela de Chamados Pendentes -->
+                <div class="bg-white rounded-md shadow-sm border border-gray-200">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-800">Formulários Pendentes</h2>
+                    </div>
+                    
+                    <div class="p-4 border-b border-gray-200">
+                        <input type="text" id="searchInput" placeholder="Buscar..." 
+                               class="w-full md:w-1/3 px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Data</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Solicitante</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tipo</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="requestTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                        
+                        <div id="loadingState" class="text-center py-12">
+                            <i class="fa-solid fa-spinner fa-spin fa-3x text-gray-400 mb-4"></i>
+                            <p class="text-gray-500">Carregando...</p>
+                        </div>
+                        
+                        <div id="emptyState" class="text-center py-12" style="display: none;">
+                            <i class="fa-solid fa-check-circle fa-3x text-green-500 mb-4"></i>
+                            <p class="text-gray-500">Nenhum chamado pendente!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: TODOS OS CHAMADOS -->
+            <div id="chamados" class="tab-content">
+                <div class="bg-white rounded-md shadow-sm border border-gray-200">
+                    <div class="p-4 border-b border-gray-200">
+                        <h2 class="text-lg font-semibold text-gray-800">Todos os Chamados</h2>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">ID</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Data</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Solicitante</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Tipo</th>
+                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="requestAllTableBody" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: ESTATÍSTICAS -->
+            <div id="stats" class="tab-content">
+                <h1 class="text-3xl font-bold text-gray-900 mb-6">Estatísticas</h1>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-md shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-semibold mb-4">Solicitações por Tipo</h3>
+                        <canvas id="chartTipos"></canvas>
+                    </div>
+                    <div class="bg-white p-6 rounded-md shadow-sm border border-gray-200">
+                        <h3 class="text-lg font-semibold mb-4">Solicitações por Status</h3>
+                        <canvas id="chartStatus"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- TAB 4: ADMINISTRAÇÃO -->
+            <div id="admin" class="tab-content">
+                <h1 class="text-3xl font-bold text-gray-900 mb-6">Links dos Formulários</h1>
+                <div id="adminLinksContainer" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="text-center py-12">
+                        <i class="fa-solid fa-spinner fa-spin fa-2x text-gray-400"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 5: CONFIGURAÇÃO -->
+            <div id="config" class="tab-content">
+                <h1 class="text-3xl font-bold text-gray-900 mb-6">Lista de Gestores</h1>
+                <div class="bg-white rounded-md shadow-sm border border-gray-200">
+                    <div id="configTableContainer" class="overflow-x-auto">
+                        <div class="text-center py-12">
+                            <i class="fa-solid fa-spinner fa-spin fa-2x text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL DE DETALHES -->
+    <div id="modalBackdrop" class="modal-backdrop"></div>
+    <div id="detailsModal" class="modal bg-white rounded-md shadow-xl w-full max-w-3xl">
+        <div class="flex justify-between items-center p-4 border-b bg-gray-50 rounded-t-md">
+            <h2 id="detailsModalTitle" class="text-lg font-semibold">Detalhes</h2>
+            <button id="closeDetailsModal" class="text-gray-500 hover:text-gray-800 text-2xl">&times;</button>
+        </div>
+        <div id="detailsModalBody" class="p-6 max-h-[70vh] overflow-y-auto"></div>
+        <div id="detailsModalActions" class="flex justify-end gap-4 p-4 bg-gray-50 border-t"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // ESTADO
+            let allRequests = [];
+            const API_BASE_URL = CONFIG.API_BASE_URL;
+
+            // SELETORES
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            const tabs = document.querySelectorAll('.tab-content');
+            const mainHeaderTitle = document.getElementById('mainHeaderTitle');
+            const userAvatar = document.getElementById('userAvatar');
+            const userName = document.getElementById('userName');
+            const logoutButton = document.getElementById('logoutButton');
+            
+            const kpiNovo = document.getElementById('kpi-novo');
+            const kpiGestor = document.getElementById('kpi-gestor');
+            const kpiRH = document.getElementById('kpi-rh');
+            const kpiAprovado = document.getElementById('kpi-aprovado');
+            const kpiRecusado = document.getElementById('kpi-recusado');
+
+            const requestTableBody = document.getElementById('requestTableBody');
+            const requestAllTableBody = document.getElementById('requestAllTableBody');
+            const loadingState = document.getElementById('loadingState');
+            const emptyState = document.getElementById('emptyState');
+            const searchInput = document.getElementById('searchInput');
+            
+            const adminLinksContainer = document.getElementById('adminLinksContainer');
+            const configTableContainer = document.getElementById('configTableContainer');
+            
+            const modalBackdrop = document.getElementById('modalBackdrop');
+            const detailsModal = document.getElementById('detailsModal');
+            const detailsModalTitle = document.getElementById('detailsModalTitle');
+            const detailsModalBody = document.getElementById('detailsModalBody');
+            const detailsModalActions = document.getElementById('detailsModalActions');
+            const closeDetailsModalBtn = document.getElementById('closeDetailsModal');
+
+            // CARREGA DADOS DO USUÁRIO
+            function loadUserData() {
+                const session = sessionStorage.getItem('session');
+                if (session) {
+                    const parsed = JSON.parse(session);
+                    const nome = parsed.user.nome || 'Usuário';
+                    const initials = nome.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+                    
+                    userName.textContent = nome;
+                    userAvatar.textContent = initials;
+                }
+            }
+
+            // NAVEGAÇÃO
+            function showTab(tabId) {
+                const link = document.querySelector(`.sidebar-link[data-tab="${tabId}"]`);
+                if (!link) return;
+                
+                mainHeaderTitle.textContent = link.textContent.trim();
+                tabs.forEach(tab => tab.classList.toggle('active', tab.id === tabId));
+                sidebarLinks.forEach(l => l.classList.toggle('active', l.dataset.tab === tabId));
+                
+                if (tabId === 'stats') renderCharts();
+                if (tabId === 'admin') loadAdmin();
+                if (tabId === 'config') loadConfig();
+            }
+            
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    showTab(link.dataset.tab);
+                });
+            });
+
+            logoutButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                Auth.logout();
+            });
+
+            // CARREGA DADOS DA API
+            async function loadDashboardData() {
+                loadingState.style.display = 'block';
+                try {
+                    const response = await fetch(`${API_BASE_URL}dados-painel`);
+                    const data = await response.json();
+                    
+                    allRequests = data.requests || [];
+                    
+                    updateKPIs();
+                    renderTable();
+                    renderAllTable();
+                    
+                    loadingState.style.display = 'none';
+                    emptyState.style.display = allRequests.filter(r => r.status === 'Pendente').length === 0 ? 'block' : 'none';
+                } catch (error) {
+                    console.error('Erro ao carregar dados:', error);
+                    loadingState.innerHTML = '<p class="text-red-600">Erro ao carregar dados</p>';
+                }
+            }
+
+            function updateKPIs() {
+                kpiNovo.textContent = allRequests.filter(r => r.status === 'Novo').length;
+                kpiGestor.textContent = allRequests.filter(r => r.status === 'Pendente').length;
+                kpiRH.textContent = allRequests.filter(r => r.status === 'Aprovado' && !r.ajustado).length;
+                kpiAprovado.textContent = allRequests.filter(r => r.status === 'Aprovado').length;
+                kpiRecusado.textContent = allRequests.filter(r => r.status === 'Recusado').length;
+            }
+
+            function renderTable() {
+                requestTableBody.innerHTML = '';
+                const searchTerm = searchInput.value.toLowerCase();
+                
+                const filtered = allRequests.filter(req => {
+                    const isPending = req.status === 'Novo' || req.status === 'Pendente';
+                    const matchesSearch = !searchTerm || 
+                        (req.solicitante || '').toLowerCase().includes(searchTerm) || 
+                        (req.tipo || '').toLowerCase().includes(searchTerm) || 
+                        (req.id || '').toString().includes(searchTerm);
+                    return isPending && matchesSearch;
+                });
+
+                filtered.forEach(req => {
+                    requestTableBody.innerHTML += `
+                        <tr>
+                            <td class="px-6 py-4 text-sm">#${req.id}</td>
+                            <td class="px-6 py-4"><span class="status-tag status-${req.status.toLowerCase()}">${req.status}</span></td>
+                            <td class="px-6 py-4 text-sm">${req.data}</td>
+                            <td class="px-6 py-4 text-sm">${req.solicitante}</td>
+                            <td class="px-6 py-4 text-sm">${req.tipo}</td>
+                            <td class="px-6 py-4">
+                                <button onclick="viewDetails(${req.id})" class="text-blue-600 hover:text-blue-800">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            function renderAllTable() {
+                requestAllTableBody.innerHTML = '';
+                allRequests.forEach(req => {
+                    requestAllTableBody.innerHTML += `
+                        <tr>
+                            <td class="px-6 py-4 text-sm">#${req.id}</td>
+                            <td class="px-6 py-4"><span class="status-tag status-${req.status.toLowerCase()}">${req.status}</span></td>
+                            <td class="px-6 py-4 text-sm">${req.data}</td>
+                            <td class="px-6 py-4 text-sm">${req.solicitante}</td>
+                            <td class="px-6 py-4 text-sm">${req.tipo}</td>
+                            <td class="px-6 py-4">
+                                <button onclick="viewDetails(${req.id})" class="text-blue-600 hover:text-blue-800">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+            }
+
+            function renderCharts() {
+                // Gráfico por tipo
+                const tiposCount = {};
+                allRequests.forEach(req => {
+                    tiposCount[req.tipo] = (tiposCount[req.tipo] || 0) + 1;
+                });
+                
+                const ctxTipos = document.getElementById('chartTipos').getContext('2d');
+                new Chart(ctxTipos, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(tiposCount),
+                        datasets: [{
+                            data: Object.values(tiposCount),
+                            backgroundColor: ['#1f2937', '#4b5563', '#9ca3af', '#d1d5db', '#f3f4f6']
+                        }]
+                    }
+                });
+
+                // Gráfico por status
+                const statusCount = {};
+                allRequests.forEach(req => {
+                    statusCount[req.status] = (statusCount[req.status] || 0) + 1;
+                });
+                
+                const ctxStatus = document.getElementById('chartStatus').getContext('2d');
+                new Chart(ctxStatus, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(statusCount),
+                        datasets: [{
+                            label: 'Quantidade',
+                            data: Object.values(statusCount),
+                            backgroundColor: '#4b5563'
+                        }]
+                    }
+                });
+            }
+
+            async function loadAdmin() {
+                adminLinksContainer.innerHTML = '';
+                CONFIG.FORMULARIOS.forEach(form => {
+                    const editUrl = `https://docs.google.com/forms/d/${form.id}/edit`;
+                    adminLinksContainer.innerHTML += `
+                        <a href="${editUrl}" target="_blank" class="block p-4 bg-white border rounded-md hover:shadow-md">
+                            <i class="fa-solid fa-file-lines mr-2"></i>
+                            <span class="font-semibold">${form.nome}</span>
+                        </a>
+                    `;
+                });
+            }
+
+            async function loadConfig() {
+                try {
+                    const response = await fetch(`${API_BASE_URL}dados-config`);
+                    const gestores = await response.json();
+                    
+                    let html = '<table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr>';
+                    html += '<th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Nome</th>';
+                    html += '<th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Email</th>';
+                    html += '<th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cargo</th>';
+                    html += '<th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Empresa</th>';
+                    html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+                    
+                    gestores.forEach(g => {
+                        html += `<tr>
+                            <td class="px-6 py-4 text-sm">${g.nome}</td>
+                            <td class="px-6 py-4 text-sm">${g.email}</td>
+                            <td class="px-6 py-4 text-sm">${g.cargo}</td>
+                            <td class="px-6 py-4 text-sm">${g.empresa}</td>
+                        </tr>`;
+                    });
+                    
+                    html += '</tbody></table>';
+                    configTableContainer.innerHTML = html;
+                } catch (error) {
+                    configTableContainer.innerHTML = '<p class="p-4 text-red-600">Erro ao carregar gestores</p>';
+                }
+            }
+
+            window.viewDetails = function(id) {
+                const req = allRequests.find(r => r.id == id);
+                if (!req) return;
+                
+                detailsModalTitle.textContent = `Chamado #${req.id}`;
+                detailsModalBody.innerHTML = `
+                    <p><strong>Solicitante:</strong> ${req.solicitante}</p>
+                    <p><strong>Tipo:</strong> ${req.tipo}</p>
+                    <p><strong>Data:</strong> ${req.data}</p>
+                    <p><strong>Status:</strong> ${req.status}</p>
+                `;
+                
+                modalBackdrop.classList.add('show');
+                detailsModal.classList.add('show');
+            };
+
+            closeDetailsModalBtn.addEventListener('click', () => {
+                modalBackdrop.classList.remove('show');
+                detailsModal.classList.remove('show');
+            });
+
+            searchInput.addEventListener('input', renderTable);
+
+            // INICIALIZAÇÃO
+            loadUserData();
+            loadDashboardData();
+        });
+    </script>
+</body>
+</html>
