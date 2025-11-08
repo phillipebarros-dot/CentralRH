@@ -1,44 +1,47 @@
 /**
  * ═══════════════════════════════════════════════════════════
- * CENTRAL RH - GRUPO OM | SISTEMA DE AUTENTICAÇÃO SIMPLIFICADO
+ *  CENTRAL RH - GRUPO OM | SISTEMA DE AUTENTICAÇÃO
  * ═══════════════════════════════════════════════════════════
  */
 
 class AuthSystem {
     constructor() {
-        // Garante que está pegando a URL certa do Config.js
         this.apiBaseUrl = typeof CONFIG !== 'undefined' ? CONFIG.API_BASE_URL : 'https://n8n.grupoom.com.br/webhook/';
     }
 
     async login(username, password) {
         try {
+            // 1. Validação básica local
             if (!username || !password) {
                 throw new Error('Por favor, preencha todos os campos.');
             }
 
-            console.log("Tentando login em:", `${this.apiBaseUrl}login-rh`);
+            console.log("🔄 Tentando login em:", `${this.apiBaseUrl}login-rh`);
 
-            // --- REQUISIÇÃO SIMPLIFICADA (SEM HEADERS EXTRAS PARA EVITAR ERRO DE CORS/500) ---
+            // 2. Requisição ao N8N (✅ CORRIGIDO: parênteses adicionados)
             const response = await fetch(`${this.apiBaseUrl}login-rh`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
-                    // REMOVIDO: X-CSRF-Token e outros headers que o n8n não espera
                 },
                 body: JSON.stringify({
                     username: username.trim().toLowerCase(),
-                    password: password // Envia a senha normal, pois é assim que está na planilha agora
+                    password: password.trim() // ✅ IMPORTANTE: Envia senha como texto simples
                 })
             });
 
+            // 3. Verifica se o servidor respondeu
             if (!response.ok) {
-                throw new Error(`Erro do Servidor (Status: ${response.status})`);
+                throw new Error(`O servidor respondeu com erro: ${response.status}`);
             }
 
+            // 4. Processa a resposta JSON
             const data = await response.json();
-
+            
             if (data.ok) {
-                // Login SUCESSO
+                // --- LOGIN SUCESSO ---
+                console.log("✅ Login autorizado!");
+                
                 const sessionData = {
                     token: data.token,
                     user: {
@@ -47,22 +50,30 @@ class AuthSystem {
                     },
                     loginTime: Date.now()
                 };
+
+                // Salva na sessão do navegador
                 sessionStorage.setItem('session', JSON.stringify(sessionData));
                 sessionStorage.setItem('rh-token', data.token);
                 
+                // Redireciona
                 window.location.href = 'painel.html';
                 return { success: true };
+                
             } else {
-                // Login FALHOU (senha errada, usuário não encontrado)
+                // --- LOGIN RECUSADO PELO N8N ---
+                console.warn("❌ Login recusado:", data.error);
                 throw new Error(data.error || 'Usuário ou senha inválidos.');
             }
 
         } catch (error) {
-            console.error('Erro detalhado no login:', error);
-            // Mensagem amigável se for erro de conexão/CORS
-            if (error.message.includes('Failed to fetch')) {
-                 throw new Error('Erro de conexão. Verifique se a extensão de CORS está ativa no navegador.');
+            console.error('🚨 Erro detalhado no login:', error);
+            
+            // Detecta erro de CORS/Rede especificamente
+            if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                throw new Error('⚠️ Erro de Conexão: O navegador bloqueou o acesso ao servidor (CORS). Verifique se a extensão "Allow CORS" está ATIVA.');
             }
+            
+            // Repassa outros erros para exibir na tela
             throw error;
         }
     }
@@ -73,13 +84,14 @@ class AuthSystem {
     }
 
     isAuthenticated() {
-        const session = sessionStorage.getItem('session');
-        return !!session;
+        return !!sessionStorage.getItem('session');
     }
 }
 
+// Inicializa
 const Auth = new AuthSystem();
 
+// Função global para proteger páginas internas
 function protectPage() {
     if (!Auth.isAuthenticated()) {
         window.location.href = 'login.html';
